@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="gaia_v02.slnx" />
+    <None Include="README.md" />
+    <None Include="create_artifact_zip.ps1" />
+  </ItemGroup>
+
+  <!-- Create a self-contained ZIP with source + published EXE after every build (Windows only).
+       _IsCreatingArtifactZip guards against infinite recursion: the nested "dotnet publish" call below
+       triggers its own Build target, which would otherwise re-enter this target indefinitely. -->
+  <Target Name="CreateSelfContainedZip" AfterTargets="Build" Condition=" '$(OS)' == 'Windows_NT' and '$(Configuration)' == 'Release' and '$(_IsCreatingArtifactZip)' != 'true' ">
+    <PropertyGroup>
+      <_PublishRid>win-x64</_PublishRid>
+      <_PublishDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\publish</_PublishDir>
+      <_ArtifactsDir>$(MSBuildProjectDirectory)\artifacts</_ArtifactsDir>
+    </PropertyGroup>
+
+    <!-- Ensure artifacts directory exists -->
+    <MakeDir Directories="$(_ArtifactsDir)" />
+
+    <!-- Publish as a single-file self-contained executable for Windows x64.
+         /p:_IsCreatingArtifactZip=true prevents this nested build from re-triggering this same target.
+         NUGET_ENABLE_ASSETS_CACHE=false avoids the benign "Unable to use package assets cache" notice that
+         occurs because this nested publish restores/builds the same project a second time right after the
+         outer build, racing on the shared in-memory assets cache. -->
+    <Exec Command="set NUGET_ENABLE_ASSETS_CACHE=false&amp;&amp;dotnet publish &quot;$(MSBuildProjectFullPath)&quot; -c $(Configuration) -r $(_PublishRid) --self-contained true /p:PublishSingleFile=true /p:PublishTrimmed=false /p:_IsCreatingArtifactZip=true -o &quot;$(_PublishDir)&quot;" />
+
+    <!-- Build a timestamped ZIP containing 'publish' and 'source' folders by calling a script -->
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\create_artifact_zip.ps1&quot; -ArtifactsDir &quot;$(_ArtifactsDir)&quot; -PublishDir &quot;$(_PublishDir)&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot; -Configuration &quot;$(Configuration)&quot; -TargetFramework &quot;$(TargetFramework)&quot;" />
+
+    <!-- Expose the created ZIP as an output item so other targets/tools can find it.
+         The filename is static (no timestamp) so it overwrites in place; check the zip into
+         source control and let Git track its version history across builds. -->
+    <ItemGroup>
+      <BuiltArtifact Include="$(_ArtifactsDir)\Gaia_v02_$(Configuration)_$(TargetFramework).zip" />
+    </ItemGroup>
+  </Target>
+
+</Project>

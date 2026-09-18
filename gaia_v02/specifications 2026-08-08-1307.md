@@ -1,0 +1,73 @@
+### **TL;DR**
+
+The objective is to design a .NET 8 / C\# 12 application to extract compact equations for the stellar distribution function ($f$) and the gravitational potential ($\\Phi$) using Gaia DR3 data. The architecture applies Clean Architecture principles to process phase space data, measure local forces, and evaluate symbolic regression models while explicitly avoiding degenerate, zero-residual traps.
+
+### **System Architecture**
+
+The application structure adheres to SOLID and Clean Architecture, separating the physical domain from data ingestion and regression infrastructure.
+
+Code snippet  
+graph TD  
+    A\[Data Ingestion: Gaia DR3 Stars\] \--\> B(Survey Bias Correction)  
+    B \--\> C(Conditional Velocity Fitting)  
+    C \--\> D(Local Acceleration Measurement)  
+    D \--\> E(Symbolic Regression Engine)  
+    E \--\> F{Diagnostic Evaluation}  
+    F \--\>|Pass| G\[Valid Physical Model\]  
+    F \--\>|Fail| E
+
+### **Domain Layer (Core Physics)**
+
+The domain defines the immutable data structures and physical interfaces using C\# 12 records and primary constructors. YAGNI dictates we model only the required coordinates and velocities.
+
+* Phase Space Representation: Define a highly optimized record for star coordinates. The galaxy is modeled as a disk, symmetric about its rotation axis and flattened.  
+  C\#  
+  namespace GaiaSR.Domain.Models;
+
+  public readonly record struct StarPhaseSpace(  
+      double R,   
+      double Z,   
+      double VR,   
+      double VZ,   
+      double VPhi);
+
+* Collisionless Boltzmann Equation (CBE): Define interfaces to compute the CBE residual, which bridges visible stellar motion and invisible gravitational potential.  
+* Constraint Enforcement: The system must enforce positivity for the distribution function by operating on $\\ln f$. It must also guarantee a curl-free structure by fitting a single shared potential ($\\Phi$).
+
+### **Application Layer (Processing Pipeline)**
+
+This layer implements the four-step methodology derived from the research, utilizing modern C\# collection expressions and pattern matching.
+
+> 1. Survey Bias Correction: Correct the spatial gradients caused by observational selection.  
+> 2. Conditional Distribution Learning: Fit velocities conditional on position to cancel out selection factors.  
+> 3. Local Force Measurement: Compute overdetermined least-squares estimates of the local acceleration inside small spatial cells. This occurs prior to choosing a potential formula.  
+> 4. Equation Distillation: Evaluate candidate equations from a symbolic regression engine.  
+>    C\#  
+>    namespace GaiaSR.Application.Services;
+
+>    public sealed class KinematicProcessor(IStarRepository repository)  
+>    {  
+>        public async Task\<AnalysisResult\> ProcessGalacticDataAsync(CancellationToken token)  
+>        {  
+>            // Utilize modern BCL and collection expressions  
+>            IReadOnlyList\<StarPhaseSpace\> stars \= await repository.GetStarsAsync(token);
+
+>            // Pipeline execution logic follows...  
+>            return new AnalysisResult();  
+>        }  
+>    }
+
+### **Diagnostic and Validation Engine**
+
+A perfect zero-residual loss is physically meaningless if the equation learns nothing about the Galaxy. The validation engine implements strict logical filters.
+
+* Reject Degenerate Solutions: The system must reject models where $f$ is constant, models lacking $z$-dependence, or models composed purely of exact integrals.  
+* Dispersion Ratio Validation: Near the midplane, the measured radial-to-vertical dispersion ratio ($\\sigma\_R / \\sigma\_z$) is approximately 1.93, not 1.0. An exact two-integral solution forces this ratio to 1.0; models collapsing to this state must be rejected.  
+* Metric Evaluation: The selected model must be scored against the relative CBE residual, the dispersion ratio, and the $R^2$ of $\\ln f$ against the empirical density. A physical model may sacrifice a perfect residual to accurately recover the observed spatial distribution.
+
+### **Infrastructure Layer (Data and Extensibility)**
+
+* Data Ingestion: Utilize System.Text.Json or specialized high-performance parsers (e.g., Parquet) to load the 9.9 million star records.  
+* Symbolic Integration: Interface with an external or custom-built symbolic regression API that accepts the measured acceleration field and outputs the non-separable closed forms.
+
+Which specific component of this pipeline (e.g., the least-squares spatial cell processing or the diagnostic evaluation engine) requires deeper architectural elaboration first?
