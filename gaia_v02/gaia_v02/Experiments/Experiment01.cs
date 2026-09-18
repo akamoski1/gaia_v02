@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using gaia_v02.Domain;
+using gaia_v02.Utilities;
 
 namespace gaia_v02.Experiments;
 
@@ -21,7 +22,8 @@ public sealed record Experiment01Parameters(
     double CellDeltaR,
     double CellDeltaZ,
     int    MinStarsPerCell,
-    int    TimeoutMinutes)
+    int    TimeoutMinutes,
+    int?   RandomSeed = null)
 {
     /// <summary>Returns a new instance carrying all documented default values.</summary>
     public static Experiment01Parameters Default => new(
@@ -38,7 +40,42 @@ public sealed record Experiment01Parameters(
         CellDeltaR     : 0.50,
         CellDeltaZ     : 0.15,
         MinStarsPerCell: 20,
-        TimeoutMinutes : 5);
+        TimeoutMinutes : 5,
+        RandomSeed     : 42); // Default seed for reproducibility; null for random
+
+    /// <summary>Validates all parameters for physically sensible ranges.</summary>
+    /// <exception cref="ArgumentException">Thrown if any parameter is invalid.</exception>
+    public void Validate()
+    {
+        if (StarCount <= 0)
+            throw new ArgumentException("StarCount must be > 0", nameof(StarCount));
+        if (R0 <= 0.1 || R0 > 50)
+            throw new ArgumentException("R0 must be in range (0.1, 50] kpc", nameof(R0));
+        if (SigmaR < 0)
+            throw new ArgumentException("SigmaR must be non-negative", nameof(SigmaR));
+        if (SigmaZ < 0)
+            throw new ArgumentException("SigmaZ must be non-negative", nameof(SigmaZ));
+        if (SigmaPhi < 0)
+            throw new ArgumentException("SigmaPhi must be non-negative", nameof(SigmaPhi));
+        if (V_LSR < 0)
+            throw new ArgumentException("V_LSR must be non-negative", nameof(V_LSR));
+        if (ScaleHeightR <= 0)
+            throw new ArgumentException("ScaleHeightR must be > 0", nameof(ScaleHeightR));
+        if (ScaleHeightZ <= 0)
+            throw new ArgumentException("ScaleHeightZ must be > 0", nameof(ScaleHeightZ));
+        if (ExpectedRatio <= 0)
+            throw new ArgumentException("ExpectedRatio must be > 0", nameof(ExpectedRatio));
+        if (RatioTolerance < 0)
+            throw new ArgumentException("RatioTolerance must be non-negative", nameof(RatioTolerance));
+        if (CellDeltaR <= 0)
+            throw new ArgumentException("CellDeltaR must be > 0", nameof(CellDeltaR));
+        if (CellDeltaZ <= 0)
+            throw new ArgumentException("CellDeltaZ must be > 0", nameof(CellDeltaZ));
+        if (MinStarsPerCell < 1)
+            throw new ArgumentException("MinStarsPerCell must be >= 1", nameof(MinStarsPerCell));
+        if (TimeoutMinutes <= 0)
+            throw new ArgumentException("TimeoutMinutes must be > 0", nameof(TimeoutMinutes));
+    }
 }
 
 /// <summary>
@@ -64,7 +101,6 @@ public sealed class Experiment01
         var sw = Stopwatch.StartNew();
         var startTime = DateTime.Now;
 
-        var csvLines = new List<string>();
         var log = new List<string>();
 
         log.Add($"[Experiment01] Started at {startTime:yyyy-MM-dd HH:mm:ss}");
@@ -89,16 +125,24 @@ public sealed class Experiment01
         log.Add($"[Experiment01] Qualifying cells (N≥{_p.MinStarsPerCell}): {cellResults.Count}");
         log.Add($"[Experiment01] Cells passing σR/σZ ratio check: {passCount} / {cellResults.Count}");
 
-        // --- Step 5: Build CSV ---
-        csvLines.Add("CellR_kpc,CellZ_kpc,StarCount,SigmaR_kms,SigmaZ_kms,Ratio_SigmaR_SigmaZ,ExpectedRatio,PassesCheck");
+        // --- Step 5: Build CSV with proper escaping ---
+        var csvWriter = new CsvWriter();
+        csvWriter.WriteHeader("CellR_kpc", "CellZ_kpc", "StarCount", "SigmaR_kms", "SigmaZ_kms", 
+                              "Ratio_SigmaR_SigmaZ", "ExpectedRatio", "PassesCheck");
         foreach (var c in cellResults)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            csvLines.Add(
-                $"{c.CellR:F2},{c.CellZ:F3},{c.N}," +
-                $"{c.SigmaR:F4},{c.SigmaZ:F4},{c.Ratio:F4}," +
-                $"{_p.ExpectedRatio:F2},{(c.PassesRatioCheck ? "YES" : "NO")}");
+            csvWriter.WriteRecord(
+                c.CellR.ToString("F2"),
+                c.CellZ.ToString("F3"),
+                c.N,
+                c.SigmaR.ToString("F4"),
+                c.SigmaZ.ToString("F4"),
+                c.Ratio.ToString("F4"),
+                _p.ExpectedRatio.ToString("F2"),
+                c.PassesRatioCheck ? "YES" : "NO");
         }
+        var csvLines = csvWriter.GetLines().ToList();
 
         sw.Stop();
         var endTime = DateTime.Now;
@@ -107,7 +151,7 @@ public sealed class Experiment01
         // Aggregate statistics
         var ratios = cellResults.Where(c => !double.IsNaN(c.Ratio)).Select(c => c.Ratio).ToList();
         double meanRatio  = ratios.Count > 0 ? ratios.Average() : double.NaN;
-        double stdRatio   = ratios.Count > 1 ? Math.Sqrt(ratios.Sum(r => Math.Pow(r - meanRatio, 2)) / ratios.Count) : double.NaN;
+        double stdRatio   = ratios.Count > 1 ? Math.Sqrt(ratios.Sum(r => Math.Pow(r - meanRatio, 2)) / (ratios.Count - 1)) : double.NaN;
         double minRatio   = ratios.Count > 0 ? ratios.Min() : double.NaN;
         double maxRatio   = ratios.Count > 0 ? ratios.Max() : double.NaN;
         double meanSigmaR = cellResults.Count > 0 ? cellResults.Average(c => c.SigmaR) : double.NaN;
@@ -135,7 +179,8 @@ public sealed class Experiment01
     // -----------------------------------------------------------------------
     private List<StarPhaseSpace> GenerateStars(CancellationToken ct)
     {
-        var rng   = new Random(42);
+        // Use configured seed for reproducibility, or random seed if null
+        var rng   = _p.RandomSeed.HasValue ? new Random(_p.RandomSeed.Value) : new Random();
         var stars = new List<StarPhaseSpace>(_p.StarCount);
 
         for (int i = 0; i < _p.StarCount; i++)
@@ -225,13 +270,18 @@ public sealed class Experiment01
     private static double SampleLaplace(Random rng, double scale)
     {
         double u = rng.NextDouble() - 0.5;
+        // Avoid exact zero which causes Math.Sign to return 0, destroying the distribution
+        if (u == 0.0) u = 1e-10;
         return -scale * Math.Sign(u) * Math.Log(1.0 - 2.0 * Math.Abs(u));
     }
 
     private static double StandardDeviation(List<StarPhaseSpace> list, Func<StarPhaseSpace, double> selector)
     {
+        if (list.Count < 2) return 0;
+
+        // Use sample variance (divide by n-1) for unbiased estimator
         double mean     = list.Average(selector);
-        double variance = list.Sum(s => Math.Pow(selector(s) - mean, 2)) / list.Count;
+        double variance = list.Sum(s => Math.Pow(selector(s) - mean, 2)) / (list.Count - 1);
         return Math.Sqrt(variance);
     }
 }

@@ -65,6 +65,7 @@ namespace gaia_v02
             lblCellDeltaZ = new System.Windows.Forms.Label();
             lblMinStars = new System.Windows.Forms.Label();
             lblTimeoutMinutes = new System.Windows.Forms.Label();
+            lblRandomSeed = new System.Windows.Forms.Label();
 
             nudStarCount = new System.Windows.Forms.NumericUpDown();
             nudR0 = new System.Windows.Forms.NumericUpDown();
@@ -80,6 +81,7 @@ namespace gaia_v02
             nudCellDeltaZ = new System.Windows.Forms.NumericUpDown();
             nudMinStars = new System.Windows.Forms.NumericUpDown();
             nudTimeoutMinutes = new System.Windows.Forms.NumericUpDown();
+            nudRandomSeed = new System.Windows.Forms.NumericUpDown();
 
             SuspendLayout();
 
@@ -198,6 +200,14 @@ namespace gaia_v02
             nudTimeoutMinutes.Size = new System.Drawing.Size(inputWidth, 22);
             nudTimeoutMinutes.Minimum = 1; nudTimeoutMinutes.Maximum = 60; nudTimeoutMinutes.DecimalPlaces = 0; nudTimeoutMinutes.Value = 5;
 
+            // Row 5b - RandomSeed (left column only)
+            lblRandomSeed.Text = "Random Seed (0=auto):";
+            lblRandomSeed.Location = new System.Drawing.Point(leftLabelX, row5);
+            lblRandomSeed.Size = new System.Drawing.Size(labelWidth, 22);
+            nudRandomSeed.Location = new System.Drawing.Point(leftInputX, row5);
+            nudRandomSeed.Size = new System.Drawing.Size(inputWidth, 22);
+            nudRandomSeed.Minimum = 0; nudRandomSeed.Maximum = int.MaxValue; nudRandomSeed.DecimalPlaces = 0; nudRandomSeed.Value = 42;
+
             // Row 6
             int row6 = row5 + rowGap;
             lblScaleHeightR.Text = "Scale Height R [kpc]:";
@@ -237,6 +247,8 @@ namespace gaia_v02
             grpParams.Controls.Add(nudMinStars);
             grpParams.Controls.Add(lblVLSR);
             grpParams.Controls.Add(nudVLSR);
+            grpParams.Controls.Add(lblRandomSeed);
+            grpParams.Controls.Add(nudRandomSeed);
             grpParams.Controls.Add(lblTimeoutMinutes);
             grpParams.Controls.Add(nudTimeoutMinutes);
             grpParams.Controls.Add(lblScaleHeightR);
@@ -354,11 +366,11 @@ namespace gaia_v02
         private System.Windows.Forms.Label lblStarCount, lblR0, lblSigmaR, lblSigmaZ, lblSigmaPhi;
         private System.Windows.Forms.Label lblVLSR, lblScaleHeightR, lblScaleHeightZ;
         private System.Windows.Forms.Label lblExpectedRatio, lblRatioTolerance;
-        private System.Windows.Forms.Label lblCellDeltaR, lblCellDeltaZ, lblMinStars, lblTimeoutMinutes;
+        private System.Windows.Forms.Label lblCellDeltaR, lblCellDeltaZ, lblMinStars, lblTimeoutMinutes, lblRandomSeed;
         private System.Windows.Forms.NumericUpDown nudStarCount, nudR0, nudSigmaR, nudSigmaZ, nudSigmaPhi;
         private System.Windows.Forms.NumericUpDown nudVLSR, nudScaleHeightR, nudScaleHeightZ;
         private System.Windows.Forms.NumericUpDown nudExpectedRatio, nudRatioTolerance;
-        private System.Windows.Forms.NumericUpDown nudCellDeltaR, nudCellDeltaZ, nudMinStars, nudTimeoutMinutes;
+        private System.Windows.Forms.NumericUpDown nudCellDeltaR, nudCellDeltaZ, nudMinStars, nudTimeoutMinutes, nudRandomSeed;
         private System.Windows.Forms.Button btnRunExperiment01;
         private System.Windows.Forms.Button btnResetDefaults;
         private System.Windows.Forms.Button btnReadme;

@@ -208,3 +208,15 @@ This repository is provided as-is for demonstration and research. There is no em
 Contact
 -------
 For code questions, inspect Experiment01.cs and Form1.* in the gaia_v02 project.
+
+Top Free High-Entropy Random APIs
+
+-   [Random.org API](https://www.random.org/): The gold standard for true random numbers seeded by atmospheric noise. It provides up to 200,000 free random bits per day via web services. [[1](https://stackoverflow.com/questions/3436376/what-is-the-most-secure-seed-for-random-number-generation)]
+
+-   [Outshift QRNG API](https://outshift.cisco.com/): A developer-friendly, free API by Cisco that delivers true quantum random numbers on demand and at scale with high hardware-generated entropy. [[1](https://outshift.cisco.com/blog/quantum/outshift-qrng-api-accessible)]
+
+-   LfD QRNG API: A public quantum random number generator endpoint hosted by LfD using quantum physics hardware to produce high-entropy data sources. [[1](https://www.lfdr.de/QRNG/)]
+
+-   [Provable.io API](https://provable.io/): A provably fair random number generator API that utilizes a commit-reveal scheme, making outcomes independently verifiable. [[1](https://provable.io/)]
+
+

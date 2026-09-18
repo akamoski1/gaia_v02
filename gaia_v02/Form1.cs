@@ -26,6 +26,24 @@ public partial class Form1 : Form
         txtCsv.Clear();
 
         var p = ReadParameters();
+
+        // Validate parameters before running
+        try
+        {
+            p.Validate();
+        }
+        catch (ArgumentException ex)
+        {
+            MessageBox.Show(
+                $"Invalid parameter: {ex.Message}",
+                "Parameter Validation Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            btnRunExperiment01.Enabled = true;
+            btnResetDefaults.Enabled = true;
+            return;
+        }
+
         var timeout = TimeSpan.FromMinutes((double)p.TimeoutMinutes);
         lblStatus.Text = $"Running Experiment 01… (timeout {p.TimeoutMinutes} min)";
         lblStatus.ForeColor = Color.DarkOrange;
@@ -42,7 +60,21 @@ public partial class Form1 : Form
                 AppContext.BaseDirectory,
                 $"Experiment01_{result.StartTime:yyyyMMdd_HHmmss}.csv");
 
-            await File.WriteAllLinesAsync(csvPath, result.CsvLines, CancellationToken.None);
+            try
+            {
+                await File.WriteAllLinesAsync(csvPath, result.CsvLines, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to write CSV file to {csvPath}:\n{ex.Message}",
+                    "File Write Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                btnRunExperiment01.Enabled = true;
+                btnResetDefaults.Enabled = true;
+                return;
+            }
 
             // Populate output boxes
             txtSummary.Text = BuildSummary(result, csvPath);
@@ -93,6 +125,7 @@ public partial class Form1 : Form
         nudCellDeltaZ.Value = (decimal)d.CellDeltaZ;
         nudMinStars.Value = d.MinStarsPerCell;
         nudTimeoutMinutes.Value = d.TimeoutMinutes;
+        nudRandomSeed.Value = d.RandomSeed.HasValue ? d.RandomSeed.Value : 42;
 
         lblStatus.Text = "Parameters reset to defaults.";
         lblStatus.ForeColor = SystemColors.GrayText;
@@ -223,7 +256,8 @@ public partial class Form1 : Form
         CellDeltaR: (double)nudCellDeltaR.Value,
         CellDeltaZ: (double)nudCellDeltaZ.Value,
         MinStarsPerCell: (int)nudMinStars.Value,
-        TimeoutMinutes: (int)nudTimeoutMinutes.Value);
+        TimeoutMinutes: (int)nudTimeoutMinutes.Value,
+        RandomSeed: (int)nudRandomSeed.Value == 0 ? null : (int)nudRandomSeed.Value);
 
     // -----------------------------------------------------------------------
     // Summary + insights builder
