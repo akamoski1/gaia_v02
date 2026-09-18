@@ -46,10 +46,8 @@ namespace gaia_v02
             lblSummaryTitle = new System.Windows.Forms.Label();
             pnlSummaryBorder = new System.Windows.Forms.Panel();
             txtSummary = new System.Windows.Forms.TextBox();
-            lblCsvTitle = new System.Windows.Forms.Label();
-            pnlCsvBorder = new System.Windows.Forms.Panel();
-            txtCsv = new System.Windows.Forms.TextBox();
 
+            lblStarCount = new System.Windows.Forms.Label();
 
             lblStarCount = new System.Windows.Forms.Label();
             lblR0 = new System.Windows.Forms.Label();
@@ -283,17 +281,24 @@ namespace gaia_v02
             // Open output buttons
             btnOpenNotepad = new System.Windows.Forms.Button();
             btnOpenSpreadsheet = new System.Windows.Forms.Button();
+            btnOpenXlsx = new System.Windows.Forms.Button();
             btnOpenNotepad.Location = new System.Drawing.Point(900, grpParams.Bottom + 12);
             btnOpenNotepad.Size = new System.Drawing.Size(110, 34);
-            btnOpenNotepad.Text = "Notepad";
+            btnOpenNotepad.Text = "CSV TEXT";
             btnOpenNotepad.Click += BtnOpenNotepad_Click;
             btnOpenNotepad.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
-            btnOpenSpreadsheet.Location = new System.Drawing.Point(768, grpParams.Bottom + 12);
-            btnOpenSpreadsheet.Size = new System.Drawing.Size(120, 34);
-            btnOpenSpreadsheet.Text = "Sheet";
+            btnOpenSpreadsheet.Location = new System.Drawing.Point(700, grpParams.Bottom + 12);
+            btnOpenSpreadsheet.Size = new System.Drawing.Size(100, 34);
+            btnOpenSpreadsheet.Text = "CSV SHEET";
             btnOpenSpreadsheet.Click += BtnOpenSpreadsheet_Click;
             btnOpenSpreadsheet.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+            btnOpenXlsx.Location = new System.Drawing.Point(500, grpParams.Bottom + 12);
+            btnOpenXlsx.Size = new System.Drawing.Size(100, 34);
+            btnOpenXlsx.Text = "XLSX";
+            btnOpenXlsx.Click += BtnOpenXlsx_Click;
+            btnOpenXlsx.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 
             // Summary box
             lblSummaryTitle.Location = new System.Drawing.Point(12, btnRunExperiment01.Bottom + 12);
@@ -314,28 +319,35 @@ namespace gaia_v02
             txtSummary.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             txtSummary.ReadOnly = true;
             txtSummary.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            txtSummary.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             pnlSummaryBorder.Controls.Add(txtSummary);
 
 
-            // CSV box
-            lblCsvTitle.Location = new System.Drawing.Point(12, pnlSummaryBorder.Bottom + 12);
-            lblCsvTitle.Size = new System.Drawing.Size(500, 18);
-            lblCsvTitle.Text = "CSV Output (also saved to file):";
+            dgvCsv = new System.Windows.Forms.DataGridView();
+            dgvCsv.Location = new System.Drawing.Point(12, pnlSummaryBorder.Bottom + 12);
+            dgvCsv.Size = new System.Drawing.Size(1126, 261);
+            dgvCsv.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            dgvCsv.ReadOnly = true;
+            dgvCsv.AllowUserToAddRows = false;
+            dgvCsv.AllowUserToDeleteRows = false;
+            dgvCsv.AllowUserToResizeRows = true;
+            dgvCsv.AllowUserToOrderColumns = true;
+            dgvCsv.AutoGenerateColumns = true;
+            dgvCsv.RowHeadersVisible = false;
+            dgvCsv.MultiSelect = false;
+            dgvCsv.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dgvCsv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvCsv.EnableHeadersVisualStyles = false;
+            dgvCsv.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(31, 120, 180);
+            dgvCsv.ColumnHeadersDefaultCellStyle.ForeColor = System.Drawing.Color.White;
+            dgvCsv.ColumnHeadersDefaultCellStyle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            dgvCsv.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            dgvCsv.RowsDefaultCellStyle.BackColor = System.Drawing.Color.White;
+            dgvCsv.AlternatingRowsDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(240, 240, 240);
+            dgvCsv.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(173, 216, 230);
+            dgvCsv.DefaultCellStyle.SelectionForeColor = System.Drawing.Color.Black;
 
-            // pnlCsvBorder hosts txtCsv and paints a 1px black border around it.
-            // Height reduced ~10% further (290 -> 261) so the label above is no longer clipped.
-            pnlCsvBorder.Location = new System.Drawing.Point(12, lblCsvTitle.Bottom + 6);
-            pnlCsvBorder.Size = new System.Drawing.Size(1126, 261);
-            pnlCsvBorder.BackColor = System.Drawing.Color.Black;
-            pnlCsvBorder.Padding = new System.Windows.Forms.Padding(1);
-            pnlCsvBorder.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-
-            txtCsv.Dock = System.Windows.Forms.DockStyle.Fill;
-            txtCsv.Multiline = true;
-            txtCsv.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            txtCsv.ReadOnly = true;
-            txtCsv.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            pnlCsvBorder.Controls.Add(txtCsv);
+            Controls.Add(dgvCsv);
 
             // Form
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -349,11 +361,10 @@ namespace gaia_v02
             Controls.Add(btnReadme);
             Controls.Add(btnOpenNotepad);
             Controls.Add(btnOpenSpreadsheet);
+            Controls.Add(btnOpenXlsx);
             Controls.Add(lblStatus);
             Controls.Add(lblSummaryTitle);
             Controls.Add(pnlSummaryBorder);
-            Controls.Add(lblCsvTitle);
-            Controls.Add(pnlCsvBorder);
 
             // 1px black border to make the parameter group box stand out visually.
             // (txtSummary/txtCsv get their black borders from their host Panel's black background + padding.)
@@ -376,13 +387,12 @@ namespace gaia_v02
         private System.Windows.Forms.Button btnReadme;
         private System.Windows.Forms.Button btnOpenNotepad;
         private System.Windows.Forms.Button btnOpenSpreadsheet;
+        private System.Windows.Forms.Button btnOpenXlsx;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label lblSummaryTitle;
         private System.Windows.Forms.Panel pnlSummaryBorder;
         private System.Windows.Forms.TextBox txtSummary;
-        private System.Windows.Forms.Label lblCsvTitle;
-        private System.Windows.Forms.Panel pnlCsvBorder;
-        private System.Windows.Forms.TextBox txtCsv;
+        private System.Windows.Forms.DataGridView dgvCsv;
 
         #endregion
     }

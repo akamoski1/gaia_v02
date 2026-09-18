@@ -1,12 +1,15 @@
 using System.Text;
+using System.Data;
 using System.Diagnostics;
 using gaia_v02.Experiments;
+using gaia_v02.Utilities;
 
 namespace gaia_v02;
 
 public partial class Form1 : Form
 {
     private string? _lastCsvPath;
+    private string? _lastXlsxPath;
 
     public Form1()
     {
@@ -23,7 +26,6 @@ public partial class Form1 : Form
         btnRunExperiment01.Enabled = false;
         btnResetDefaults.Enabled = false;
         txtSummary.Clear();
-        txtCsv.Clear();
 
         var p = ReadParameters();
 
@@ -55,13 +57,23 @@ public partial class Form1 : Form
             var experiment = new Experiment01(p);
             var result = await Task.Run(() => experiment.RunAsync(cts.Token), cts.Token);
 
-            // Write CSV next to EXE
+            // Write CSV and XLSX to the user's temp folder with a deterministic timestamp format.
+            string stamp = result.StartTime.ToString("yyyy_MM_dd_HHmm_fffffff");
             string csvPath = Path.Combine(
-                AppContext.BaseDirectory,
-                $"Experiment01_{result.StartTime:yyyyMMdd_HHmmss}.csv");
+                Path.GetTempPath(),
+                $"Experiment01_{stamp}.csv");
 
+            // Keep the XLSX path aligned with the CSV path in temp.
+            string xlsxPath = Path.Combine(
+                Path.GetTempPath(),
+                $"Experiment01_{stamp}.xlsx");
+
+            // Save the CSV to temp, overwriting any existing file automatically.
             try
             {
+                if (File.Exists(csvPath))
+                    File.Delete(csvPath);
+
                 await File.WriteAllLinesAsync(csvPath, result.CsvLines, CancellationToken.None);
             }
             catch (Exception ex)
@@ -76,14 +88,43 @@ public partial class Form1 : Form
                 return;
             }
 
-            // Populate output boxes
-            txtSummary.Text = BuildSummary(result, csvPath);
-            txtCsv.Text = string.Join(Environment.NewLine, result.CsvLines);
+            // Convert CSV to XLSX in temp, overwriting any existing file automatically.
+            try
+            {
+                if (File.Exists(xlsxPath))
+                    File.Delete(xlsxPath);
 
-            // remember CSV path for open buttons
+                XlsxExporter.ConvertCsvToXlsx(csvPath, xlsxPath, "Experiment01");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to create XLSX file ({xlsxPath}):\n{ex.Message}",
+                    "XLSX Export Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                // Continue anyway - CSV is still available
+            }
+
+            // Populate output boxes
+            txtSummary.Text = BuildSummary(result, csvPath, xlsxPath);
+            BindCsvToGrid(string.Join(Environment.NewLine, result.CsvLines));
+
+            // remember paths for open buttons
             _lastCsvPath = csvPath;
+            _lastXlsxPath = File.Exists(xlsxPath) ? xlsxPath : null;
             btnOpenNotepad.Enabled = true;
             btnOpenSpreadsheet.Enabled = true;
+            btnOpenXlsx.Enabled = _lastXlsxPath != null;
+
+            lblStatus.Text = $"Done – {result.QualCells} cells analysed, CSV saved to {Path.GetFileName(csvPath)}";
+            lblStatus.ForeColor = Color.DarkGreen;
+            // Remember paths for open buttons
+            _lastCsvPath = csvPath;
+            _lastXlsxPath = File.Exists(xlsxPath) ? xlsxPath : null;
+            btnOpenNotepad.Enabled = true;
+            btnOpenSpreadsheet.Enabled = true;
+            btnOpenXlsx.Enabled = _lastXlsxPath != null;
 
             lblStatus.Text = $"Done – {result.QualCells} cells analysed, CSV saved to {Path.GetFileName(csvPath)}";
             lblStatus.ForeColor = Color.DarkGreen;
@@ -238,6 +279,45 @@ public partial class Form1 : Form
         }
     }
 
+    private void BtnOpenXlsx_Click(object? sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_lastXlsxPath) || !File.Exists(_lastXlsxPath))
+        {
+            MessageBox.Show("No XLSX file found. Run an experiment first.", "Open XLSX", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Try Excel, then LibreOffice/OpenOffice, then default association
+        try
+        {
+            // Try Excel first
+            try
+            {
+                var p = new ProcessStartInfo("excel.exe") { Arguments = $"\"{_lastXlsxPath}\"", UseShellExecute = true };
+                Process.Start(p);
+                return;
+            }
+            catch { /* ignore and try next */ }
+
+            // Try LibreOffice/OpenOffice (soffice) with --calc
+            try
+            {
+                var p2 = new ProcessStartInfo("soffice") { Arguments = $"--calc \"{_lastXlsxPath}\"", UseShellExecute = true };
+                Process.Start(p2);
+                return;
+            }
+            catch { /* ignore */ }
+
+            // Fallback: open with default associated application
+            var psi = new ProcessStartInfo(_lastXlsxPath) { UseShellExecute = true };
+            Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to open XLSX file: {ex.Message}", "Open XLSX", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Parameter collection
     // -----------------------------------------------------------------------
@@ -263,7 +343,93 @@ public partial class Form1 : Form
     // Summary + insights builder
     // -----------------------------------------------------------------------
 
-    private static string BuildSummary(ExperimentResult r, string csvPath)
+    private void BindCsvToGrid(string csvText)
+    {
+        if (string.IsNullOrWhiteSpace(csvText))
+        {
+            dgvCsv.DataSource = null;
+            return;
+        }
+
+        var lines = csvText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 0)
+        {
+            dgvCsv.DataSource = null;
+            return;
+        }
+
+        var table = new DataTable();
+        var headers = SplitCsvLine(lines[0]);
+        foreach (var header in headers)
+        {
+            var colName = string.IsNullOrWhiteSpace(header) ? $"Column{table.Columns.Count + 1}" : header.Trim();
+            if (table.Columns.Contains(colName))
+            {
+                colName = $"{colName}_{table.Columns.Count + 1}";
+            }
+            table.Columns.Add(colName);
+        }
+
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var values = SplitCsvLine(lines[i]);
+            if (values.Length == 0)
+                continue;
+
+            var row = table.NewRow();
+            for (int j = 0; j < table.Columns.Count; j++)
+            {
+                row[j] = j < values.Length ? values[j] : string.Empty;
+            }
+            table.Rows.Add(row);
+        }
+
+        dgvCsv.DataSource = table;
+        dgvCsv.AutoGenerateColumns = true;
+        dgvCsv.AllowUserToOrderColumns = true;
+        dgvCsv.ReadOnly = true;
+        dgvCsv.RowHeadersVisible = false;
+        dgvCsv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+        dgvCsv.Sort(dgvCsv.Columns[0], System.ComponentModel.ListSortDirection.Ascending);
+    }
+
+    private static string[] SplitCsvLine(string line)
+    {
+        var values = new List<string>();
+        var current = new StringBuilder();
+        bool inQuotes = false;
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (c == ',' && !inQuotes)
+            {
+                values.Add(current.ToString());
+                current.Clear();
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+
+        values.Add(current.ToString());
+        return values.ToArray();
+    }
+
+    private static string BuildSummary(ExperimentResult r, string csvPath, string? xlsxPath)
     {
         var p = r.Parameters;
         var sb = new StringBuilder();
@@ -321,6 +487,7 @@ public partial class Form1 : Form
         AppendParam(sb, "Mean σR (measured)", $"{r.MeanSigmaR:F2} km/s  (input {p.SigmaR:F1} km/s)");
         AppendParam(sb, "Mean σZ (measured)", $"{r.MeanSigmaZ:F2} km/s  (input {p.SigmaZ:F1} km/s)");
         AppendParam(sb, "CSV file", csvPath);
+        AppendParam(sb, "XLSX file", xlsxPath ?? "Not created");
         sb.AppendLine();
 
         // --- Insights ---
