@@ -209,7 +209,7 @@ Contact
 -------
 For code questions, inspect Experiment01.cs and Form1.* in the gaia_v02 project.
 
-Top Free High-Entropy Random APIs
+# Top Free High-Entropy Random APIs (true random number generators)
 
 -   [Random.org API](https://www.random.org/): The gold standard for true random numbers seeded by atmospheric noise. It provides up to 200,000 free random bits per day via web services. [[1](https://stackoverflow.com/questions/3436376/what-is-the-most-secure-seed-for-random-number-generation)]
 
@@ -219,4 +219,4 @@ Top Free High-Entropy Random APIs
 
 -   [Provable.io API](https://provable.io/): A provably fair random number generator API that utilizes a commit-reveal scheme, making outcomes independently verifiable. [[1](https://provable.io/)]
 
-
+TODO. 2026-09-18. Update to use a true random number generator (QRNG) for seeding the synthetic star generation, replacing the current pseudo-random generator. This will enhance reproducibility and statistical validity of the experiments.
