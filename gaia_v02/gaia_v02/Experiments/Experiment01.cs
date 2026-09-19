@@ -101,6 +101,7 @@ public sealed class Experiment01
         var sw = Stopwatch.StartNew();
         var startTime = DateTime.Now;
 
+        var csvLines = new List<string>();
         var log = new List<string>();
 
         log.Add($"[Experiment01] Started at {startTime:yyyy-MM-dd HH:mm:ss}");
@@ -125,24 +126,16 @@ public sealed class Experiment01
         log.Add($"[Experiment01] Qualifying cells (N≥{_p.MinStarsPerCell}): {cellResults.Count}");
         log.Add($"[Experiment01] Cells passing σR/σZ ratio check: {passCount} / {cellResults.Count}");
 
-        // --- Step 5: Build CSV with proper escaping ---
-        var csvWriter = new CsvWriter();
-        csvWriter.WriteHeader("CellR_kpc", "CellZ_kpc", "StarCount", "SigmaR_kms", "SigmaZ_kms", 
-                              "Ratio_SigmaR_SigmaZ", "ExpectedRatio", "PassesCheck");
+        // --- Step 5: Build CSV ---
+        csvLines.Add("CellR_kpc,CellZ_kpc,StarCount,SigmaR_kms,SigmaZ_kms,Ratio_SigmaR_SigmaZ,ExpectedRatio,PassesCheck");
         foreach (var c in cellResults)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            csvWriter.WriteRecord(
-                c.CellR.ToString("F2"),
-                c.CellZ.ToString("F3"),
-                c.N,
-                c.SigmaR.ToString("F4"),
-                c.SigmaZ.ToString("F4"),
-                c.Ratio.ToString("F4"),
-                _p.ExpectedRatio.ToString("F2"),
-                c.PassesRatioCheck ? "YES" : "NO");
+            csvLines.Add(
+                $"{c.CellR:F2},{c.CellZ:F3},{c.N}," +
+                $"{c.SigmaR:F4},{c.SigmaZ:F4},{c.Ratio:F4}," +
+                $"{_p.ExpectedRatio:F2},{(c.PassesRatioCheck ? "YES" : "NO")}");
         }
-        var csvLines = csvWriter.GetLines().ToList();
 
         sw.Stop();
         var endTime = DateTime.Now;
